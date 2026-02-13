@@ -14,6 +14,7 @@ import (
 // Object2 matches github.com/RocketChat/airlock/api/v1alpha1.Object2.
 // We only set status of objects we own, therefore justified to use a different interface than client.Object
 // which means we miss out on core resources.
+// +kubebuilder:object:generate=false
 type Object2 interface {
 	client.Object
 
