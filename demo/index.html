@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phase Rules Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 1rem; padding-bottom: 6rem; background: #1a1a2e; color: #eee; }
+    h2 { font-size: 1rem; margin: 0 0 0.5rem 0; color: #a0a0c0; }
+    .row { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; }
+    .panel { flex: 1; min-width: 200px; max-width: 320px; padding: 1rem; background: #16213e; border-radius: 8px; }
+    .panel.wide { max-width: 420px; }
+    .add-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .add-row input { flex: 1; padding: 0.5rem; border: 1px solid #0f3460; border-radius: 4px; background: #0f3460; color: #eee; }
+    .add-row button { padding: 0.5rem 0.75rem; border: none; border-radius: 4px; background: #e94560; color: #fff; cursor: pointer; font-weight: 600; }
+    .add-row button:hover { background: #ff6b6b; }
+    .list { list-style: none; padding: 0; margin: 0; }
+    .list li { padding: 0.35rem 0; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+    .list li:last-child { border-bottom: none; }
+    .list li .list-item-remove { padding: 0.2rem 0.5rem; font-size: 0.85rem; background: #e94560; color: #fff; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+    .list li .list-item-remove:hover { filter: brightness(1.1); }
+    .load-template-btn { padding: 0.35rem 0.6rem; font-size: 0.9rem; background: #0f3460; color: #eee; border: 1px solid #1a1a2e; border-radius: 4px; cursor: pointer; }
+    .load-template-btn:hover { background: #16213e; }
+    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: #16213e; border-top: 1px solid #0f3460; padding: 0.75rem 1.5rem; box-shadow: 0 -2px 12px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 0.75rem; max-width: 1200px; margin: 0 auto; }
+    .bottom-bar-current-conditions { padding-bottom: 0.5rem; border-bottom: 1px solid #0f3460; }
+    .bottom-bar-heading { font-size: 0.95rem; margin: 0 0 0.2rem 0; color: #a0a0c0; }
+    .bottom-bar-subtext { font-size: 0.8rem; color: #6a6a8a; margin: 0 0 0.5rem 0; }
+    .bottom-bar-conditions-inner { width: 100%; }
+    .current-conditions-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .current-conditions-table td { padding: 0.35rem 0.5rem 0.35rem 0; vertical-align: middle; }
+    .current-conditions-table td.cond-name { width: 22%; word-wrap: break-word; overflow-wrap: break-word; font-size: 0.85rem; }
+    .current-conditions-table td.cond-name .cond-name-pill { display: inline-block; max-width: 100%; padding: 0.35rem 0.5rem; font-size: 0.85rem; color: #a8b0c0; background: #0f3460; border: 1px solid #1a1a2e; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    .current-conditions-table td.cond-status { width: 11%; white-space: nowrap; }
+    .current-conditions-table td.cond-status select { width: 100%; min-width: 5.5rem; padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #0f3460; border-radius: 4px; background: #16213e; color: #eee; box-sizing: border-box; }
+    .bottom-bar-conditions-inner > p { margin: 0; font-size: 0.85rem; color: #6a6a8a; }
+    .bottom-bar-inner { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+    .bottom-bar-inner .compute-btn { padding: 0.6rem 1rem; font-size: 0.95rem; font-weight: 600; border: none; border-radius: 6px; cursor: pointer; background: #0f3460; color: #eee; }
+    .bottom-bar-inner .compute-btn:hover:not(:disabled) { background: #1a1a2e; }
+    .bottom-bar-inner .compute-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .bottom-bar-inner .clear-btn { margin-left: auto; padding: 0.6rem 1rem; font-size: 0.95rem; font-weight: 600; background: #e94560; color: #fff; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: opacity 0.25s; }
+    .bottom-bar-inner .clear-btn:hover { filter: brightness(1.15); }
+    .bottom-bar-inner .clear-btn.hidden { opacity: 0; pointer-events: none; }
+  </style>
+  <style id="bottom-bar-result-style">
+    .bottom-bar-inner .result { font-size: 1.1rem; font-weight: 600; color: #4ecca3; }
+    .bottom-bar-inner .result.unknown { color: #a0a0c0; }
+    .rule-card { background: #0f3460; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem; }
+    .rule-card .rule-head { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
+    .rule-card select { padding: 0.35rem 0.5rem; border: 1px solid #1a1a2e; border-radius: 4px; background: #16213e; color: #eee; }
+    .rule-card .cond-row { display: flex; gap: 0.5rem; margin-top: 0.35rem; align-items: center; flex-wrap: wrap; }
+    .rule-card .cond-row select.cond-type { flex: 0 1 auto; min-width: 8rem; }
+    .rule-card .cond-row .status-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+    .rule-card .status-chip { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.2rem 0.35rem; font-size: 0.75rem; background: #16213e; border-radius: 4px; border: 1px solid #0f3460; }
+    .rule-card .status-chip .status-chip-remove { background: none; border: none; color: #a0a0c0; cursor: pointer; padding: 0 0.15rem; font-size: 0.9rem; line-height: 1; }
+    .rule-card .status-chip .status-chip-remove:hover { color: #e94560; }
+    .rule-card .cond-row .cond-line-end { display: inline-flex; align-items: center; gap: 0.5rem; margin-left: auto; flex-shrink: 0; }
+    .rule-card .cond-row select.add-status-select { font-size: 0.85rem; padding: 0.35rem 0.5rem; min-width: 6rem; background: #16213e; color: #eee; border: 1px solid #4ecca3; border-radius: 4px; cursor: pointer; }
+    .rule-card .cond-row select.add-status-select:focus { outline: none; border-color: #4ecca3; box-shadow: 0 0 0 2px rgba(78,204,163,0.3); }
+    .rule-card .remove-cond-line { padding: 0.2rem 0.5rem; font-size: 0.85rem; background: #e94560; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    .rule-card .add-cond-in-rule:disabled { opacity: 0.5; cursor: not-allowed; }
+    .rule-card button.remove { padding: 0.2rem 0.5rem; font-size: 0.85rem; background: #e94560; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    .rule-description { font-size: 0.8rem; margin-bottom: 0.5rem; padding: 0.4rem 0.5rem; border-left: 3px solid #4ecca3; background: linear-gradient(90deg, rgba(78,204,163,0.08) 0%, transparent 100%); border-radius: 0 4px 4px 0; color: #a8e6cf; font-style: italic; }
+    .rule-description.modified { border-left-color: #e94560; background: linear-gradient(90deg, rgba(233,69,96,0.08) 0%, transparent 100%); }
+    .rule-description.modified .rule-description-text { text-decoration: line-through; color: #a0a0c0; }
+    .rule-modified-badge { display: block; font-size: 0.75rem; font-style: normal; color: #e94560; margin-top: 0.25rem; }
+    .template-modified-banner { display: inline-block; background: #c0392b; color: #fff; padding: 0.35rem 0.6rem; font-size: 0.85rem; border-radius: 4px; margin-left: 0.5rem; }
+    .compute-row { margin-top: 1rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .compute-row button { padding: 0.6rem 1rem; border: none; border-radius: 4px; background: #0f3460; color: #eee; cursor: pointer; font-weight: 600; }
+    .compute-row button:hover { background: #16213e; }
+    .result { font-size: 1.1rem; font-weight: 600; color: #4ecca3; }
+    .result.unknown { color: #a0a0c0; }
+    .current-state .cond-row { margin-bottom: 0.5rem; }
+    .current-state .cond-row select { min-width: 120px; }
+    label { display: block; font-size: 0.85rem; color: #a0a0c0; margin-bottom: 0.25rem; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.25rem; }
+    .page-header .import-btn { padding: 0.5rem 0.75rem; font-size: 0.9rem; background: #0f3460; color: #eee; border: 1px solid #1a1a2e; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .page-header .import-btn:hover { background: #16213e; }
+    .import-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; padding: 1.5rem; box-sizing: border-box; }
+    .import-overlay.visible { display: flex; }
+    .import-modal { background: #16213e; border-radius: 8px; padding: 1.25rem; max-width: 640px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; border: 1px solid #0f3460; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+    .import-modal h3 { margin: 0 0 0.75rem 0; font-size: 1rem; color: #a0a0c0; }
+    .import-modal textarea { width: 100%; min-height: 280px; padding: 0.75rem; font-family: monospace; font-size: 0.85rem; background: #0f3460; border: 1px solid #1a1a2e; border-radius: 4px; color: #eee; resize: vertical; box-sizing: border-box; }
+    .import-modal textarea::placeholder { color: #6a6a8a; }
+    .import-modal .import-actions { display: flex; align-items: center; flex-wrap: wrap; margin-top: 0.75rem; gap: 0.5rem; }
+    .import-modal .import-actions-btns { margin-left: auto; display: flex; gap: 0.5rem; }
+    .import-modal .import-load-btn { padding: 0.5rem 1rem; font-size: 0.9rem; font-weight: 600; background: #4ecca3; color: #1a1a2e; border: none; border-radius: 4px; cursor: pointer; }
+    .import-modal .import-load-btn:hover { filter: brightness(1.1); }
+    .import-modal .import-close-btn { padding: 0.5rem 0.75rem; font-size: 0.9rem; background: #0f3460; color: #eee; border: 1px solid #1a1a2e; border-radius: 4px; cursor: pointer; }
+    .import-modal .import-error { font-size: 0.85rem; color: #e94560; margin-top: 0.5rem; }
+    .import-editor-container { min-height: 280px; height: 280px; width: 100%; border: 1px solid #1a1a2e; border-radius: 4px; overflow: hidden; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+</head>
+<body>
+  <div class="page-header">
+    <h1 style="margin: 0;">Phase Rules Demo</h1>
+    <button type="button" id="importBtn" class="import-btn">Import</button>
+  </div>
+  <p style="color: #a0a0c0; margin-bottom: 1.5rem;">Add phases and condition types, then define rules. Set current conditions and compute phase.</p>
+
+  <div id="importOverlay" class="import-overlay" aria-hidden="true">
+    <div class="import-modal" role="dialog" aria-labelledby="importModalTitle">
+      <h3 id="importModalTitle">Import template (JSON, snake_case — comments allowed)</h3>
+      <div id="importEditorContainer" class="import-editor-container"></div>
+      <div class="import-actions">
+        <span id="importError" class="import-error" aria-live="polite"></span>
+        <div class="import-actions-btns">
+          <button type="button" id="importCloseBtn" class="import-close-btn">Close</button>
+          <button type="button" id="importLoadBtn" class="import-load-btn">Load</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row" style="margin-bottom: 1.5rem;">
+    <div class="panel wide" style="max-width: 100%;">
+      <h2>Templates</h2>
+      <p style="font-size: 0.85rem; color: #a0a0c0; margin-bottom: 0.5rem;">Load a template to fill phases, condition types, rules, and optional default current conditions.</p>
+      <ul class="list templates-list" id="templatesList"></ul>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="panel">
+      <h2>Phases</h2>
+      <div class="add-row">
+        <input type="text" id="phaseInput" placeholder="e.g. Ready, Failed" />
+        <button type="button" id="addPhaseBtn">Add phase</button>
+      </div>
+      <ul class="list" id="phaseList"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Condition types</h2>
+      <div class="add-row">
+        <input type="text" id="conditionTypeInput" placeholder="e.g. BucketExists" />
+        <button type="button" id="addConditionTypeBtn">Add condition</button>
+      </div>
+      <ul class="list" id="conditionTypeList"></ul>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top: 1.5rem;">
+    <div class="panel wide" style="max-width: 100%;">
+      <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <h2 style="margin-bottom: 0;">Rules</h2>
+        <span id="templateModifiedBanner" class="template-modified-banner" aria-live="polite" style="display: none;">Modified</span>
+      </div>
+      <p style="font-size: 0.85rem; color: #a0a0c0; margin-bottom: 0.5rem;">First matching rule wins. Each rule: pick a phase and one or more (condition type, status) pairs. All = every pair must match; Any = at least one.</p>
+      <button type="button" id="addRuleBtn" class="add-row">+ Add rule</button>
+      <div id="rulesContainer"></div>
+    </div>
+  </div>
+
+  <div id="bottomBar" class="bottom-bar">
+    <div class="bottom-bar-current-conditions">
+      <h2 class="bottom-bar-heading">Current conditions (to evaluate)</h2>
+      <p class="bottom-bar-subtext">Set status for each condition type. Only used when computing phase.</p>
+      <div id="currentConditions" class="bottom-bar-conditions-inner"></div>
+    </div>
+    <div class="bottom-bar-inner">
+      <button type="button" id="computeBtn" class="compute-btn" disabled>Compute phase</button>
+      <span>Result: <span id="computedPhase" class="result">—</span></span>
+      <button type="button" id="clearBtn" class="clear-btn hidden" aria-hidden="true">Clear</button>
+    </div>
+  </div>
+
+  <script src="phaseRules.js"></script>
+  <script>
+    (function () {
+      const PR = window.phaseRules;
+      const STATUS_OPTIONS = [
+        { value: PR.ConditionTrue, label: 'True' },
+        { value: PR.ConditionFalse, label: 'False' },
+        { value: PR.ConditionUnknown, label: 'Unknown' },
+      ];
+		
+	  const Templates = [
+		  {
+			  Name: 'CertManager_Certificate',
+			  Phases: ['NotReady', 'Pending', 'Ready'],
+			  ConditionTypes: [
+				'OrderReady',
+				'ChallengeReady',
+				'CertificateReady',
+				'CreatificateRequestReady',
+				'SyncFailed',
+			  ],
+			  Rules: [
+				{
+					Phase: 'NotReady',
+					All: false,
+					Description: 'If CertificateReady is False, does not matter the other conditions, assume controller updates this on each sync attempt',
+					Conditions: [
+						{ Type: 'CertificateReady', Statuses: [PR.ConditionFalse] },
+					],
+				},
+				{
+					Phase: 'Pending',
+					All: false,
+					Description: 'If any condition is in not ready state. CertificateReady is not considered, as NotReady rule is handled already, and SyncFailed too, since that isn\'t a concern of this phase.',
+					Conditions: [
+						{ Type: 'OrderReady', Statuses: [PR.ConditionFalse, PR.ConditionUnknown] },
+						{ Type: 'ChallengeReady', Statuses: [PR.ConditionFalse, PR.ConditionUnknown] },
+						{ Type: 'CreatificateRequestReady', Statuses: [PR.ConditionFalse, PR.ConditionUnknown] },
+					],
+				},
+				{
+					Phase: 'Ready',
+					All: true,
+					Description: 'All conditions must be True except for the ones with negative polarity, SyncFailed',
+					Conditions: [
+						{ Type: 'OrderReady', Statuses: [PR.ConditionTrue] },
+						{ Type: 'ChallengeReady', Statuses: [PR.ConditionTrue] },
+						{ Type: 'CertificateReady', Statuses: [PR.ConditionTrue] },
+						{ Type: 'CreatificateRequestReady', Statuses: [PR.ConditionTrue] },
+						{ Type: 'SyncFailed', Statuses: [PR.ConditionFalse] },
+					],
+				},
+			  ],
+			  DefaultConditions: [
+				{ Type: 'OrderReady', Status: PR.ConditionTrue },
+				{ Type: 'ChallengeReady', Status: PR.ConditionTrue },
+				{ Type: 'CertificateReady', Status: PR.ConditionTrue },
+				{ Type: 'CreatificateRequestReady', Status: PR.ConditionTrue },
+				{ Type: 'SyncFailed', Status: PR.ConditionFalse },
+			  ],
+		  },
+		  {
+			  Name: 'Airlock_AccessRequest',
+			  Phases: ['NotReady', 'Pending', 'Ready'],
+			  ConditionTypes: [
+				  'MongoDBClusterReady',
+				  'MongoDBUserCreationFailed',
+			  ],
+			  Rules: [
+				{
+					Phase: 'NotReady',
+					All: false,
+					Description: 'Any of the conditions is False',
+					Conditions: [
+						{ Type: 'MongoDBClusterReady', Statuses: [PR.ConditionFalse] },
+						{ Type: 'MongoDBUserCreationFailed', Statuses: [PR.ConditionTrue] },
+					],
+				},
+				{
+					Phase: 'Pending',
+					All: true,
+					Description: 'Creation must be unknown, did not complete yet, cluster can be in any state positive-ish.',
+					Conditions: [
+						{ Type: 'MongoDBUserCreationFailed', Statuses: [PR.ConditionUnknown] },
+						{ Type: 'MongoDBClusterReady', Statuses: [PR.ConditionUnknown, PR.ConditionTrue] },
+					],
+				},
+				{
+					Phase: 'Ready',
+					All: true,
+					Description: 'All conditions must be True except for the ones with negative polarity, MongoDBUserCreationFailed',
+					Conditions: [
+						{ Type: 'MongoDBClusterReady', Statuses: [PR.ConditionTrue] },
+						{ Type: 'MongoDBUserCreationFailed', Statuses: [PR.ConditionFalse] },
+					],
+				},
+			  ],
+			  DefaultConditions: [
+				{ Type: 'MongoDBClusterReady', Status: PR.ConditionTrue },
+				{ Type: 'MongoDBUserCreationFailed', Status: PR.ConditionFalse },
+			  ],
+		  }
+	  ];
+
+      /* Example uses Monaco Editor (VS Code editor) for JSON/JSONC syntax highlighting. */
+      const IMPORT_SCHEMA_EXAMPLE = `{
+  "name": "MyTemplate",
+  "phases": ["Ready", "Pending", "NotReady"],
+  "condition_types": ["CondA", "CondB"],
+  "rules": [
+    {
+      "phase": "Ready",
+      "all": true,
+      "description": "Optional description",
+      "conditions": [
+        { "type": "CondA", "statuses": ["True"] },
+        { "type": "CondB", "statuses": ["False"] }
+      ]
+    }
+  ],
+  "default_conditions": [
+    { "type": "CondA", "status": "True" },
+    { "type": "CondB", "status": "False" }
+  ]
+}`;
+
+      const IMPORT_SCHEMA_EXAMPLE_WITH_COMMENTS = `{
+  // Template name (optional, for reference)
+  "name": "MyTemplate",
+  // Phase names in order (e.g. Ready, Pending, NotReady)
+  "phases": ["Ready", "Pending", "NotReady"],
+  // Condition type identifiers used in rules
+  "condition_types": ["CondA", "CondB"],
+  // Rules: first matching rule wins. Each rule has phase, all (AND vs OR), optional description, and conditions.
+  "rules": [
+    {
+      "phase": "Ready",
+      "all": true,
+      "description": "Optional human-readable description",
+      "conditions": [
+        { "type": "CondA", "statuses": ["True"] },
+        { "type": "CondB", "statuses": ["False"] }
+      ]
+    }
+  ],
+  // Default current condition status per type (used when computing phase)
+  "default_conditions": [
+    { "type": "CondA", "status": "True" },
+    { "type": "CondB", "status": "False" }
+  ]
+}`;
+
+      const state = {
+        phases: [],
+        conditionTypes: [],
+        currentConditions: {}, // type -> status
+        rules: [], // { phase, all, conditions: [{ type, status }] }
+        ruleDescriptions: [], // parallel to rules, from template
+        originalRulesSnapshot: [], // deep copy to detect modifications
+        templatePhasesSnapshot: [],
+        templateConditionTypesSnapshot: [],
+      };
+
+      const VALID_STATUSES = new Set([PR.ConditionTrue, PR.ConditionFalse, PR.ConditionUnknown]);
+      const TEMPLATE_TOP_KEYS = new Set(['Name', 'Phases', 'ConditionTypes', 'Rules', 'DefaultConditions']);
+      const RULE_KEYS = new Set(['Phase', 'All', 'Description', 'Conditions']);
+      const CONDITION_KEYS = new Set(['Type', 'Statuses']);
+      const DEFAULT_CONDITION_KEYS = new Set(['Type', 'Status']);
+
+      function validateTemplate(template) {
+        if (!template || typeof template !== 'object' || Array.isArray(template)) {
+          throw new Error('Template must be a single object');
+        }
+        const topKeys = Object.keys(template);
+        const badTop = topKeys.find((k) => !TEMPLATE_TOP_KEYS.has(k));
+        if (badTop) throw new Error('Unknown template key: ' + badTop);
+
+        const phases = Array.isArray(template.Phases) ? template.Phases : [];
+        const conditionTypes = Array.isArray(template.ConditionTypes) ? template.ConditionTypes : [];
+        const rules = Array.isArray(template.Rules) ? template.Rules : [];
+        const phaseSet = new Set(phases);
+        const conditionTypeSet = new Set(conditionTypes);
+
+        for (const r of rules) {
+          if (!r || typeof r !== 'object') throw new Error('Each rule must be an object');
+          const ruleKeys = Object.keys(r);
+          const badRule = ruleKeys.find((k) => !RULE_KEYS.has(k));
+          if (badRule) throw new Error('Unknown rule key: ' + badRule);
+          if (!phaseSet.has(r.Phase)) throw new Error('Rule refers to unknown phase: ' + String(r.Phase));
+          const conditions = Array.isArray(r.Conditions) ? r.Conditions : [];
+          for (const c of conditions) {
+            if (!c || typeof c !== 'object') throw new Error('Each condition must be an object');
+            const condKeys = Object.keys(c);
+            const badCond = condKeys.find((k) => !CONDITION_KEYS.has(k));
+            if (badCond) throw new Error('Unknown condition key: ' + badCond);
+            if (!conditionTypeSet.has(c.Type)) throw new Error('Condition type not in condition_types: ' + String(c.Type));
+            const statuses = Array.isArray(c.Statuses) ? c.Statuses : [];
+            for (const s of statuses) {
+              if (!VALID_STATUSES.has(s)) throw new Error('Invalid status: ' + String(s) + ' (must be True, False, or Unknown)');
+            }
+          }
+        }
+
+        const defaultConditions = Array.isArray(template.DefaultConditions) ? template.DefaultConditions : [];
+        for (const d of defaultConditions) {
+          if (!d || typeof d !== 'object') throw new Error('Each default_condition must be an object');
+          const dcKeys = Object.keys(d);
+          const badDc = dcKeys.find((k) => !DEFAULT_CONDITION_KEYS.has(k));
+          if (badDc) throw new Error('Unknown default_condition key: ' + badDc);
+          if (!conditionTypeSet.has(d.Type)) throw new Error('Default condition type not in condition_types: ' + String(d.Type));
+          if (!VALID_STATUSES.has(d.Status)) throw new Error('Invalid default status: ' + String(d.Status) + ' (must be True, False, or Unknown)');
+        }
+      }
+
+      function ruleEquals(a, b) {
+        if (!a || !b) return !a && !b;
+        if (a.phase !== b.phase || a.all !== b.all) return false;
+        if (a.conditions.length !== b.conditions.length) return false;
+        const ac = [...a.conditions].sort((x, y) => (x.type + x.status).localeCompare(y.type + y.status));
+        const bc = [...b.conditions].sort((x, y) => (x.type + x.status).localeCompare(y.type + y.status));
+        return ac.every((c, i) => ac[i].type === bc[i].type && ac[i].status === bc[i].status);
+      }
+
+      function loadTemplate(template) {
+        validateTemplate(template);
+        state.phases = [...(template.Phases || [])];
+        state.conditionTypes = [...(template.ConditionTypes || [])];
+        state.currentConditions = {};
+        state.conditionTypes.forEach((type) => {
+          const def = (template.DefaultConditions || []).find((d) => d.Type === type);
+          state.currentConditions[type] = def ? def.Status : PR.ConditionUnknown;
+        });
+        state.rules = (template.Rules || []).map((r) => ({
+          phase: r.Phase || state.phases[0] || 'Unknown',
+          all: r.All !== false,
+          conditions: (r.Conditions || []).flatMap((c) =>
+            (c.Statuses || []).map((s) => ({ type: c.Type, status: s }))
+          ),
+        }));
+        state.ruleDescriptions = (template.Rules || []).map((r) => r.Description || '');
+        state.originalRulesSnapshot = state.rules.map((r) => ({
+          phase: r.phase,
+          all: r.all,
+          conditions: r.conditions.map((c) => ({ type: c.type, status: c.status })),
+        }));
+        state.templatePhasesSnapshot = [...state.phases];
+        state.templateConditionTypesSnapshot = [...state.conditionTypes];
+        renderPhaseList();
+        renderConditionTypeList();
+        renderCurrentConditions();
+        renderRules();
+        updateTemplateModifiedBanner();
+      }
+
+      function snakeToCamelTemplate(obj) {
+        if (obj === null || typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) return obj.map(snakeToCamelTemplate);
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+          const newKey = k.split('_').map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join('');
+          out[newKey] = snakeToCamelTemplate(v);
+        }
+        return out;
+      }
+
+      function stripJsonComments(str) {
+        let out = '';
+        let i = 0;
+        const n = str.length;
+        let inStr = null;
+        let inLineComment = false;
+        let inBlockComment = false;
+        let blockStart = -1;
+        while (i < n) {
+          const c = str[i];
+          const next = str[i + 1];
+          if (inLineComment) {
+            if (c === '\n' || c === '\r') inLineComment = false;
+            i++;
+            continue;
+          }
+          if (inBlockComment) {
+            if (c === '*' && next === '/') { i += 2; inBlockComment = false; continue; }
+            i++;
+            continue;
+          }
+          if (inStr) {
+            if (c === '\\' && next !== undefined) { out += c + next; i += 2; continue; }
+            if (c === inStr) { inStr = null; out += c; i++; continue; }
+            out += c;
+            i++;
+            continue;
+          }
+          if ((c === '"' || c === "'") && (i === 0 || str[i - 1] !== '\\\\')) {
+            inStr = c;
+            out += c;
+            i++;
+            continue;
+          }
+          if (c === '/' && next === '/') { inLineComment = true; i += 2; continue; }
+          if (c === '/' && next === '*') { inBlockComment = true; i += 2; continue; }
+          out += c;
+          i++;
+        }
+        return out;
+      }
+
+      function arrayEqual(a, b) {
+        if (!a || !b) return (!a || a.length === 0) && (!b || b.length === 0);
+        if (a.length !== b.length) return false;
+        return a.every((x, i) => x === b[i]);
+      }
+
+      function isTemplateModified() {
+        if (!arrayEqual(state.phases, state.templatePhasesSnapshot)) return true;
+        if (!arrayEqual(state.conditionTypes, state.templateConditionTypesSnapshot)) return true;
+        if (state.rules.length !== state.originalRulesSnapshot.length) return true;
+        return state.rules.some((r, i) => !ruleEquals(r, state.originalRulesSnapshot[i]));
+      }
+
+      function updateTemplateModifiedBanner() {
+        const el = document.getElementById('templateModifiedBanner');
+        if (el) {
+          el.style.display = isTemplateModified() ? 'inline-block' : 'none';
+        }
+      }
+
+      function hasValidRulesForCompute() {
+        return state.rules.some((r) => {
+          if (!r.phase || !String(r.phase).trim()) return false;
+          return r.conditions.some((c) => (c.type && String(c.type).trim()) && (c.status && String(c.status).trim()));
+        });
+      }
+
+      function updateComputeButtonState() {
+        const btn = document.getElementById('computeBtn');
+        if (btn) btn.disabled = !hasValidRulesForCompute();
+      }
+
+      function updateClearButtonState() {
+        const hasContent = state.phases.length > 0 || state.conditionTypes.length > 0 || state.rules.length > 0;
+        const clearBtn = document.getElementById('clearBtn');
+        if (clearBtn) {
+          clearBtn.classList.toggle('hidden', !hasContent);
+          clearBtn.setAttribute('aria-hidden', !hasContent);
+        }
+        updateComputeButtonState();
+      }
+
+      function updateBodyPaddingForFooter() {
+        requestAnimationFrame(() => {
+          const bar = document.getElementById('bottomBar');
+          if (bar) {
+            const height = bar.offsetHeight + 24;
+            document.body.style.paddingBottom = height + 'px';
+          }
+        });
+      }
+
+      function computeAndRenderPhase() {
+        const currentCondList = state.conditionTypes.map((type) => ({
+          type,
+          status: state.currentConditions[type] ?? PR.ConditionUnknown,
+        }));
+        const rules = state.rules.map((rule) => {
+          const matcherInputs = rule.conditions
+            .filter((c) => c.type && c.status)
+            .map((c) => PR.conditionEquals(c.type, c.status));
+          const matcher = matcherInputs.length
+            ? (rule.all ? PR.conditionsAll(...matcherInputs) : PR.conditionsAny(...matcherInputs))
+            : PR.conditionsAll();
+          return PR.newPhaseRule(rule.phase, matcher);
+        });
+        const result = PR.computePhaseFromRules(rules, currentCondList);
+        const el = document.getElementById('computedPhase');
+        if (el) {
+          el.textContent = result;
+          el.classList.toggle('unknown', result === PR.PhaseUnknown);
+        }
+      }
+
+      function clearUI() {
+        state.phases = [];
+        state.conditionTypes = [];
+        state.currentConditions = {};
+        state.rules = [];
+        state.ruleDescriptions = [];
+        state.originalRulesSnapshot = [];
+        state.templatePhasesSnapshot = [];
+        state.templateConditionTypesSnapshot = [];
+        renderPhaseList();
+        renderConditionTypeList();
+        renderCurrentConditions();
+        renderRules();
+        const el = document.getElementById('computedPhase');
+        if (el) {
+          el.textContent = '—';
+          el.classList.remove('unknown');
+        }
+        updateTemplateModifiedBanner();
+      }
+
+      function renderTemplatesList() {
+        const ul = document.getElementById('templatesList');
+        ul.innerHTML = Templates.map(
+          (t, i) =>
+            `<li><span>${escapeHtml(t.Name)}</span><button type="button" class="load-template-btn" data-template-idx="${i}">Load</button></li>`
+        ).join('');
+        ul.querySelectorAll('.load-template-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            try {
+              loadTemplate(Templates[parseInt(btn.dataset.templateIdx, 10)]);
+            } catch (err) {
+              alert('Invalid template: ' + (err.message || String(err)));
+            }
+          });
+        });
+      }
+
+      function renderPhaseList() {
+        const ul = document.getElementById('phaseList');
+        ul.innerHTML = state.phases.map((p) => `<li><span>${escapeHtml(p)}</span><button type="button" class="list-item-remove" data-phase="${escapeHtml(p)}" aria-label="Remove phase">Remove</button></li>`).join('') || '<li style="color:#666">No phases yet</li>';
+        ul.querySelectorAll('.list-item-remove').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const phase = btn.dataset.phase;
+            const idx = state.phases.indexOf(phase);
+            if (idx === -1) return;
+            state.phases.splice(idx, 1);
+            // Remove all rules that reference this phase (indices in parallel arrays)
+            const toRemove = new Set();
+            state.rules.forEach((r, i) => {
+              if (r.phase === phase) toRemove.add(i);
+            });
+            for (const i of [...toRemove].sort((a, b) => b - a)) {
+              state.rules.splice(i, 1);
+              state.ruleDescriptions.splice(i, 1);
+              state.originalRulesSnapshot.splice(i, 1);
+            }
+            renderPhaseList();
+            renderRules();
+            updateClearButtonState();
+            updateTemplateModifiedBanner();
+          });
+        });
+      }
+
+      function renderConditionTypeList() {
+        const ul = document.getElementById('conditionTypeList');
+        ul.innerHTML = state.conditionTypes.map((t) => `<li><span>${escapeHtml(t)}</span><button type="button" class="list-item-remove" data-condition-type="${escapeHtml(t)}" aria-label="Remove condition type">Remove</button></li>`).join('') || '<li style="color:#666">No condition types yet</li>';
+        ul.querySelectorAll('.list-item-remove').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const type = btn.dataset.conditionType;
+            const idx = state.conditionTypes.indexOf(type);
+            if (idx === -1) return;
+            state.conditionTypes.splice(idx, 1);
+            delete state.currentConditions[type];
+            state.rules.forEach((r) => {
+              r.conditions = r.conditions.filter((c) => c.type !== type);
+            });
+            state.originalRulesSnapshot.forEach((snap) => {
+              snap.conditions = snap.conditions.filter((c) => c.type !== type);
+            });
+            renderConditionTypeList();
+            renderCurrentConditions();
+            renderRules();
+            updateClearButtonState();
+            updateTemplateModifiedBanner();
+          });
+        });
+      }
+
+      function renderCurrentConditions() {
+        const el = document.getElementById('currentConditions');
+        if (state.conditionTypes.length === 0) {
+          el.innerHTML = '<p style="color:#666">Add condition types first.</p>';
+          updateBodyPaddingForFooter();
+          return;
+        }
+        const options = STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('');
+        const COLS = 3;
+        const types = state.conditionTypes;
+        const rows = [];
+        for (let i = 0; i < types.length; i += COLS) {
+          const rowTypes = types.slice(i, i + COLS);
+          const cells = [];
+          rowTypes.forEach((type) => {
+            cells.push(`<td class="cond-name"><span class="cond-name-pill">${escapeHtml(type)}</span></td>`);
+            cells.push(`<td class="cond-status"><select data-current-type="${escapeHtml(type)}">${options}</select></td>`);
+          });
+          while (cells.length < COLS * 2) cells.push('<td></td>');
+          rows.push(`<tr>${cells.join('')}</tr>`);
+        }
+        el.innerHTML = `<table class="current-conditions-table"><tbody>${rows.join('')}</tbody></table>`;
+        el.querySelectorAll('select').forEach((sel) => {
+          sel.value = state.currentConditions[sel.dataset.currentType] ?? PR.ConditionUnknown;
+          sel.addEventListener('change', () => {
+            state.currentConditions[sel.dataset.currentType] = sel.value;
+            computeAndRenderPhase();
+          });
+        });
+        updateBodyPaddingForFooter();
+      }
+
+      function groupConditionsByType(conditions) {
+        const seen = new Set();
+        const groups = [];
+        for (const c of conditions) {
+          const type = c.type != null ? c.type : '';
+          if (!seen.has(type)) {
+            seen.add(type);
+            const statuses = conditions.filter((x) => (x.type != null ? x.type : '') === type).map((x) => x.status).filter((s) => s !== '');
+            groups.push({ type, statuses });
+          }
+        }
+        return groups;
+      }
+
+      function renderRules() {
+        const container = document.getElementById('rulesContainer');
+        const typeOptions = state.conditionTypes.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+        const statusOptions = STATUS_OPTIONS.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('');
+
+        container.innerHTML = state.rules.map((rule, idx) => {
+          const phaseSet = new Set(state.phases);
+          if (rule.phase && !phaseSet.has(rule.phase)) phaseSet.add(rule.phase);
+          const phaseOptions = [...phaseSet].map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+          const typeSet = new Set(state.conditionTypes);
+          rule.conditions.forEach((c) => { if (c.type) typeSet.add(c.type); });
+          const typeOptionsForRule = [...typeSet].map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+          const groups = groupConditionsByType(rule.conditions);
+          const condRows = groups.map((grp, lineIdx) => {
+            const chips = (grp.statuses || []).filter((s) => s).map((s) => `<span class="status-chip" data-rule="${idx}" data-type="${escapeHtml(grp.type)}" data-status="${escapeHtml(s)}">${escapeHtml(s)}<button type="button" class="status-chip-remove" aria-label="Remove status">×</button></span>`).join('');
+            return `
+            <div class="cond-row" data-rule="${idx}" data-line="${lineIdx}" data-type="${escapeHtml(grp.type)}">
+              <select class="cond-type" data-rule="${idx}" data-line="${lineIdx}" data-field="type">${typeOptionsForRule}</select>
+              <span class="status-chips">${chips}</span>
+              <span class="cond-line-end">
+                <select class="add-status-select" data-rule="${idx}" data-type="${escapeHtml(grp.type)}"><option value="" disabled selected>+ status</option>${statusOptions}</select>
+                <button type="button" class="remove remove-cond-line" data-rule="${idx}" data-type="${escapeHtml(grp.type)}">Remove</button>
+              </span>
+            </div>
+          `;
+          }).join('');
+          const desc = state.ruleDescriptions[idx] || '';
+          const modified = state.originalRulesSnapshot[idx] !== undefined && !ruleEquals(rule, state.originalRulesSnapshot[idx]);
+          const descriptionBlock = desc
+            ? `<div class="rule-description${modified ? ' modified' : ''}">${modified ? `<span class="rule-description-text">${escapeHtml(desc)}</span><span class="rule-modified-badge">Modified</span>` : escapeHtml(desc)}</div>`
+            : '';
+          return `
+            <div class="rule-card" data-rule-idx="${idx}">
+              ${descriptionBlock}
+              <div class="rule-head">
+                <select class="rule-phase" data-rule="${idx}">${phaseOptions}</select>
+                <select class="rule-all" data-rule="${idx}">
+                  <option value="all" ${rule.all ? 'selected' : ''}>All (AND)</option>
+                  <option value="any" ${!rule.all ? 'selected' : ''}>Any (OR)</option>
+                </select>
+                <button type="button" class="remove remove-rule" data-rule="${idx}">Remove rule</button>
+              </div>
+              <div class="rule-conditions" data-rule="${idx}">${condRows}</div>
+              <button type="button" class="add-cond-in-rule" data-rule="${idx}" ${(function(){ const typesInRule = new Set(groups.map((g) => g.type)); const allUsed = state.conditionTypes.length > 0 && state.conditionTypes.every((t) => typesInRule.has(t)); return allUsed ? 'disabled' : ''; })()} style="margin-top:0.35rem; padding:0.25rem 0.5rem; font-size:0.85rem; background:#16213e; color:#eee; border:1px solid #0f3460; border-radius:4px; cursor:pointer;">+ Condition</button>
+            </div>
+          `;
+        }).join('');
+
+        container.querySelectorAll('.rule-phase').forEach((sel) => {
+          const idx = parseInt(sel.dataset.rule, 10);
+          sel.value = state.rules[idx].phase;
+          sel.addEventListener('change', (e) => {
+            state.rules[idx].phase = e.target.value;
+            renderRules();
+          });
+        });
+        container.querySelectorAll('.rule-all').forEach((sel) => {
+          const idx = parseInt(sel.dataset.rule, 10);
+          sel.value = state.rules[idx].all ? 'all' : 'any';
+          sel.addEventListener('change', (e) => {
+            state.rules[idx].all = e.target.value === 'all';
+            renderRules();
+          });
+        });
+        container.querySelectorAll('.remove-rule').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const i = parseInt(btn.dataset.rule, 10);
+            state.rules.splice(i, 1);
+            state.ruleDescriptions.splice(i, 1);
+            state.originalRulesSnapshot.splice(i, 1);
+            renderRules();
+          });
+        });
+        container.querySelectorAll('.status-chip-remove').forEach((btn) => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const chip = btn.closest('.status-chip');
+            if (!chip) return;
+            const r = parseInt(chip.dataset.rule, 10);
+            const type = chip.dataset.type;
+            const status = chip.dataset.status;
+            const conds = state.rules[r].conditions;
+            const i = conds.findIndex((c) => (c.type || '') === type && c.status === status);
+            if (i !== -1) {
+              conds.splice(i, 1);
+              const leftForType = conds.some((c) => (c.type || '') === type);
+              if (!leftForType) {
+                conds.push({ type: type || '', status: '' });
+              }
+              renderRules();
+            }
+          });
+        });
+        container.querySelectorAll('.cond-type').forEach((sel) => {
+          const r = parseInt(sel.dataset.rule, 10);
+          const row = sel.closest('.cond-row');
+          const oldType = row ? (row.dataset.type || '') : '';
+          sel.value = oldType;
+          sel.addEventListener('change', (e) => {
+            const newType = e.target.value;
+            const conds = state.rules[r].conditions;
+            const statuses = conds.filter((c) => (c.type || '') === oldType).map((c) => c.status).filter((s) => s);
+            state.rules[r].conditions = conds.filter((c) => (c.type || '') !== oldType);
+            statuses.forEach((s) => state.rules[r].conditions.push({ type: newType, status: s }));
+            if (statuses.length === 0) {
+              state.rules[r].conditions.push({ type: newType, status: '' });
+            }
+            renderRules();
+          });
+        });
+        container.querySelectorAll('.add-status-select').forEach((sel) => {
+          sel.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (!val) return;
+            const r = parseInt(sel.dataset.rule, 10);
+            const type = sel.dataset.type || '';
+            const conds = state.rules[r].conditions;
+            const existingIdx = conds.findIndex((c) => (c.type || '') === type && c.status === val);
+            if (existingIdx !== -1) {
+              conds.splice(existingIdx, 1);
+              const leftForType = conds.some((c) => (c.type || '') === type);
+              if (!leftForType) conds.push({ type, status: '' });
+            } else {
+              conds.push({ type, status: val });
+            }
+            sel.value = '';
+            renderRules();
+          });
+        });
+        container.querySelectorAll('.remove-cond-line').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const r = parseInt(btn.dataset.rule, 10);
+            const type = btn.dataset.type;
+            state.rules[r].conditions = state.rules[r].conditions.filter((c) => c.type !== type);
+            renderRules();
+          });
+        });
+        container.querySelectorAll('.add-cond-in-rule').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.rule, 10);
+            const typesInRule = new Set(state.rules[idx].conditions.map((c) => c.type || ''));
+            const firstUnusedType = state.conditionTypes.find((t) => !typesInRule.has(t));
+            const typeToAdd = firstUnusedType !== undefined ? firstUnusedType : '';
+            state.rules[idx].conditions.push({ type: typeToAdd, status: PR.ConditionUnknown });
+            renderRules();
+          });
+        });
+        updateClearButtonState();
+        updateTemplateModifiedBanner();
+        computeAndRenderPhase();
+      }
+
+      function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+      }
+
+      document.getElementById('addPhaseBtn').addEventListener('click', () => {
+        const input = document.getElementById('phaseInput');
+        const name = (input.value || '').trim();
+        if (name && !state.phases.includes(name)) {
+          state.phases.push(name);
+          input.value = '';
+          renderPhaseList();
+          renderRules();
+        }
+      });
+
+      document.getElementById('addConditionTypeBtn').addEventListener('click', () => {
+        const input = document.getElementById('conditionTypeInput');
+        const name = (input.value || '').trim();
+        if (name && !state.conditionTypes.includes(name)) {
+          state.conditionTypes.push(name);
+          state.currentConditions[name] = PR.ConditionUnknown;
+          input.value = '';
+          renderConditionTypeList();
+          renderCurrentConditions();
+          renderRules();
+        }
+      });
+
+      document.getElementById('addRuleBtn').addEventListener('click', () => {
+        const phase = state.phases[0] || 'Unknown';
+        const newRule = {
+          phase,
+          all: true,
+          conditions: state.conditionTypes.length ? [{ type: state.conditionTypes[0], status: PR.ConditionTrue }] : [],
+        };
+        state.rules.push(newRule);
+        state.ruleDescriptions.push('');
+        state.originalRulesSnapshot.push({
+          phase: newRule.phase,
+          all: newRule.all,
+          conditions: newRule.conditions.map((c) => ({ type: c.type, status: c.status })),
+        });
+        renderRules();
+      });
+
+      document.getElementById('computeBtn').addEventListener('click', () => {
+        // Sync current conditions from DOM (dropdowns may not have fired change)
+        const currentConditionsEl = document.getElementById('currentConditions');
+        if (currentConditionsEl) {
+          currentConditionsEl.querySelectorAll('select[data-current-type]').forEach((sel) => {
+            state.currentConditions[sel.dataset.currentType] = sel.value;
+          });
+        }
+        computeAndRenderPhase();
+      });
+
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        if (state.phases.length > 0 || state.conditionTypes.length > 0 || state.rules.length > 0) clearUI();
+      });
+
+      const importOverlay = document.getElementById('importOverlay');
+      const importEditorContainer = document.getElementById('importEditorContainer');
+      const importError = document.getElementById('importError');
+      let monacoImportEditor = null;
+
+      function initImportEditor(callback) {
+        if (monacoImportEditor) {
+          monacoImportEditor.getModel().setValue(IMPORT_SCHEMA_EXAMPLE_WITH_COMMENTS);
+          if (callback) callback();
+          return;
+        }
+        const vsPath = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs';
+        window.require.config({ paths: { vs: vsPath } });
+        window.require(['vs/editor/editor.main'], function () {
+          if (monacoImportEditor) { if (callback) callback(); return; }
+          if (window.monaco && window.monaco.languages && window.monaco.languages.json) {
+            window.monaco.languages.json.jsonDefaults.setDiagnosticsOptions({ allowComments: true });
+          }
+          monacoImportEditor = window.monaco.editor.create(importEditorContainer, {
+            value: IMPORT_SCHEMA_EXAMPLE_WITH_COMMENTS,
+            language: 'json',
+            theme: 'vs-dark',
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            fontSize: 13,
+            automaticLayout: true,
+          });
+          if (callback) callback();
+        });
+      }
+
+      document.getElementById('importBtn').addEventListener('click', () => {
+        importError.textContent = '';
+        initImportEditor(() => {
+          monacoImportEditor.getModel().setValue(IMPORT_SCHEMA_EXAMPLE_WITH_COMMENTS);
+          importOverlay.classList.add('visible');
+          importOverlay.setAttribute('aria-hidden', 'false');
+          monacoImportEditor.focus();
+        });
+      });
+
+      function closeImportPopup() {
+        importOverlay.classList.remove('visible');
+        importOverlay.setAttribute('aria-hidden', 'true');
+      }
+
+      document.getElementById('importCloseBtn').addEventListener('click', closeImportPopup);
+      importOverlay.addEventListener('click', (e) => {
+        if (e.target === importOverlay) closeImportPopup();
+      });
+
+      document.getElementById('importLoadBtn').addEventListener('click', () => {
+        importError.textContent = '';
+        const raw = monacoImportEditor ? monacoImportEditor.getModel().getValue() : '';
+        const trimmed = raw.trim();
+        if (!trimmed) {
+          importError.textContent = 'Enter JSON.';
+          return;
+        }
+        const jsonStr = stripJsonComments(trimmed);
+        let parsed;
+        try {
+          parsed = JSON.parse(jsonStr);
+        } catch (err) {
+          importError.textContent = 'Invalid JSON: ' + (err.message || String(err));
+          return;
+        }
+        if (Array.isArray(parsed)) {
+          importError.textContent = 'Expected a single template object, not a list.';
+          return;
+        }
+        if (parsed === null || typeof parsed !== 'object') {
+          importError.textContent = 'Expected a template object.';
+          return;
+        }
+        const template = snakeToCamelTemplate(parsed);
+        try {
+          loadTemplate(template);
+          closeImportPopup();
+        } catch (err) {
+          importError.textContent = 'Load failed: ' + (err.message || String(err));
+        }
+      });
+
+      window.addEventListener('resize', updateBodyPaddingForFooter);
+      renderTemplatesList();
+      renderPhaseList();
+      renderConditionTypeList();
+      renderCurrentConditions();
+      renderRules();
+    })();
+  </script>
+</body>
+</html>
