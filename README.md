@@ -2,6 +2,20 @@
 
 Standalone **phase rules** and **condition matchers** for computing a resource phase from a list of Kubernetes-style conditions (`metav1.Condition`). Extracted from [airlock](https://github.com/RocketChat/airlock).
 
+**TL;DR** — **Spec** = desired state; **status** = observed state (controllers write status only). **Conditions** are raw observations (one fact each); **phase** is a single label derived from them by your rules—conditions for precision, phase for UIs and alerts. Declare a phase rule with a nested matcher; first matching rule wins:
+
+```go
+rule := rules.NewPhaseRule("Ready", rules.ConditionsAny(
+	rules.ConditionsAny(
+		rules.ConditionEquals("A", metav1.ConditionTrue),
+		rules.ConditionEquals("B", metav1.ConditionTrue),
+	),
+	rules.ConditionEquals("C", metav1.ConditionTrue),
+))
+// Satisfies when (A or B) or C is true
+phase := rule.ComputePhase(&conditions)
+```
+
 **Note:** This is an **experimental** module. It is intentionally kept as simple as possible: minimal API surface, no extra dependencies beyond what’s needed for rules and status patching, and no feature creep. Use it as a starting point and adapt as needed. It may (most likely will) be incomplete.
 
 ## Why conditions matter
@@ -47,6 +61,7 @@ go test ./...
 - **Conditions** are type + status pairs (e.g. `BucketExists=True`, `JobFailed=False`).
 - A **phase rule** binds a **phase name** (e.g. `Ready`, `Failed`, `Pending`) to a **matcher** over conditions.
 - **Condition matchers** are built with `ConditionsAll` (every condition must match) or `ConditionsAny` (at least one must match), and `ConditionEquals(conditionType, statuses...)` to specify allowed statuses per condition.
+- **Matchers can be nested:** e.g. `ConditionsAny(ConditionsAny(...), ConditionEquals(...))` for “(inner OR) OR single condition,” or `ConditionsAll(ConditionsAny(...), ConditionEquals(...))` for “(inner OR) AND single condition.” See [Nested / recursive matchers](#nested--recursive-matchers) below.
 
 Given a slice of `[]metav1.Condition`, you can:
 
@@ -273,6 +288,42 @@ var BackupPhaseRules = []rules.PhaseRule{
 	),
 }
 ```
+
+### Nested / recursive matchers
+
+Matchers can be nested to express “any of these groups” or “all of these, where one clause is itself an any.” Use generic condition types (e.g. `A`, `B`, `C`) when defining rules; replace them with your real condition names.
+
+**Any-of-nested-any and one condition** — phase is `Ready` when **(A or B) or C** is true:
+
+```go
+rules.NewPhaseRule("Ready", rules.ConditionsAny(
+	rules.ConditionsAny(
+		rules.ConditionEquals("A", metav1.ConditionTrue),
+		rules.ConditionEquals("B", metav1.ConditionTrue),
+	),
+	rules.ConditionEquals("C", metav1.ConditionTrue),
+))
+```
+
+- Satisfied when `A=True`, or `B=True`, or `C=True` (any branch).
+- Not satisfied when `A`, `B`, and `C` are all `False` or missing/unknown.
+
+**All-of with nested any** — phase is `Ready` when **(A or B) and C**:
+
+```go
+rules.NewPhaseRule("Ready", rules.ConditionsAll(
+	rules.ConditionsAny(
+		rules.ConditionEquals("A", metav1.ConditionTrue),
+		rules.ConditionEquals("B", metav1.ConditionTrue),
+	),
+	rules.ConditionEquals("C", metav1.ConditionTrue),
+))
+```
+
+- Satisfied when `C=True` and at least one of `A` or `B` is `True`.
+- Not satisfied when `C=False`/unknown or when both `A` and `B` are not `True`.
+
+**Deep nesting** — same idea: pass `ConditionsAny` or `ConditionsAll` as arguments to outer `ConditionsAny`/`ConditionsAll` as needed. Evaluation is recursive; rule order (first match wins) is unchanged.
 
 ### Using StatusManager (from airlock)
 
