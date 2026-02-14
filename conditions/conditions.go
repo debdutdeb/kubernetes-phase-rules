@@ -24,7 +24,7 @@ type Object2 interface {
 	SetObservedGeneration(generation int64)
 }
 
-type StatusManager struct {
+type ConditionsManager struct {
 	conditions   *[]metav1.Condition
 	object       Object2
 	phaseRules   []rules.PhaseRule
@@ -33,8 +33,8 @@ type StatusManager struct {
 
 // we only set status of objects we own, therefore justified to use a different interface than client.Object
 // which means we miss out on core resources
-func NewManager(statusClient client.StatusClient, conditions *[]metav1.Condition, object Object2, rules []rules.PhaseRule) *StatusManager {
-	return &StatusManager{
+func NewManager(statusClient client.StatusClient, conditions *[]metav1.Condition, object Object2, rules []rules.PhaseRule) *ConditionsManager {
+	return &ConditionsManager{
 		conditions:   conditions,
 		object:       object,
 		phaseRules:   rules,
@@ -49,7 +49,7 @@ type Condition struct {
 	Message string
 }
 
-func (m *StatusManager) SetConditions(ctx context.Context, conditions []Condition) error {
+func (m *ConditionsManager) SetConditions(ctx context.Context, conditions []Condition) error {
 	logger := log.FromContext(ctx)
 
 	base := m.object.DeepCopyObject().(client.Object)
@@ -76,7 +76,7 @@ func (m *StatusManager) SetConditions(ctx context.Context, conditions []Conditio
 
 		// recompute phase, since a condition status has changed
 		for _, rule := range m.phaseRules {
-			if rule.Satisfies(*m.conditions) {
+			if rule.Satisfies(m.conditions) {
 				m.object.SetPhase(rule.Phase())
 				ruleMatched = true
 				break
@@ -96,7 +96,7 @@ func (m *StatusManager) SetConditions(ctx context.Context, conditions []Conditio
 	return nil
 }
 
-func (m *StatusManager) SetCondition(ctx context.Context, conditionType string, status metav1.ConditionStatus, reason, message string) error {
+func (m *ConditionsManager) SetCondition(ctx context.Context, conditionType string, status metav1.ConditionStatus, reason, message string) error {
 	logger := log.FromContext(ctx)
 
 	/*
@@ -118,7 +118,7 @@ func (m *StatusManager) SetCondition(ctx context.Context, conditionType string, 
 
 		// recompute phase, since a condition status has changed
 		for _, rule := range m.phaseRules {
-			if rule.Satisfies(*m.conditions) {
+			if rule.Satisfies(m.conditions) {
 				m.object.SetPhase(rule.Phase())
 				ruleMatched = true
 				break
