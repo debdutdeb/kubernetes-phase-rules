@@ -4,7 +4,8 @@ import (
 	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/debdutdeb/kubernetes-phase-rules/sets"
 )
 
 const PhaseUnknown = "Unknown"
@@ -88,7 +89,7 @@ func (m *conditionMatcherAll) ConditionTypes() sets.Set[string] {
 	types := sets.New[string]()
 
 	for _, matcher := range m.matcherReferences {
-		types = types.Union(matcher.ConditionTypes())
+		types.DestructiveUnion(matcher.ConditionTypes())
 	}
 
 	return types
@@ -108,7 +109,6 @@ type conditionMatcherAny struct {
 var _ ConditionMatcher = (*conditionMatcherAny)(nil)
 
 func (m *conditionMatcherAny) Matches(conditions *[]metav1.Condition) bool {
-	// fmt.Printf("self: %T, condition: %#v\n", m, condition)
 	if conditions == nil {
 		return false
 	}
@@ -126,7 +126,7 @@ func (m *conditionMatcherAny) ConditionTypes() sets.Set[string] {
 	types := sets.New[string]()
 
 	for _, matcher := range m.matcherReferences {
-		types = types.Union(matcher.ConditionTypes())
+		types.DestructiveUnion(matcher.ConditionTypes())
 	}
 
 	return types
