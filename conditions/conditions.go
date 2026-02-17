@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/debdutdeb/kubernetes-phase-rules/rules"
+	"github.com/debdutdeb/kubernetes-phase-rules/webhook"
 )
 
 // Object2 matches github.com/RocketChat/airlock/api/v1alpha1.Object2.
@@ -29,17 +30,39 @@ type ConditionsManager struct {
 	object       Object2
 	phaseRules   []rules.PhaseRule
 	statusClient client.StatusClient
+
+	webhookMgr     *webhook.WebhookManager
+	watchCondition metav1.Condition
+	watchStatus    metav1.ConditionStatus
+}
+
+type WebhookOptions struct {
+	Url            string
+	Headers        map[string]string
+	WatchCondition metav1.Condition
+	WatchStatus    metav1.ConditionStatus
 }
 
 // we only set status of objects we own, therefore justified to use a different interface than client.Object
 // which means we miss out on core resources
-func NewManager(statusClient client.StatusClient, conditions *[]metav1.Condition, object Object2, rules []rules.PhaseRule) *ConditionsManager {
-	return &ConditionsManager{
+func NewManager(statusClient client.StatusClient, conditions *[]metav1.Condition, object Object2, rules []rules.PhaseRule, opts *WebhookOptions) *ConditionsManager {
+	mgr := &ConditionsManager{
 		conditions:   conditions,
 		object:       object,
 		phaseRules:   rules,
 		statusClient: statusClient,
 	}
+
+	if opts != nil {
+		mgr.watchCondition = opts.WatchCondition
+		mgr.watchStatus = opts.WatchStatus
+		mgr.webhookMgr = webhook.NewManager(&webhook.WebhookOptions{
+			Url:     opts.Url,
+			Headers: opts.Headers,
+		})
+	}
+
+	return mgr
 }
 
 type Condition struct {
@@ -96,6 +119,10 @@ func (m *ConditionsManager) SetConditions(ctx context.Context, conditions []Cond
 	return nil
 }
 
+func (m *ConditionsManager) isWebhookConfigured() bool {
+	return m.webhookMgr != nil
+}
+
 func (m *ConditionsManager) SetCondition(ctx context.Context, conditionType string, status metav1.ConditionStatus, reason, message string) error {
 	logger := log.FromContext(ctx)
 
@@ -114,6 +141,12 @@ func (m *ConditionsManager) SetCondition(ctx context.Context, conditionType stri
 		LastTransitionTime: metav1.Now(),
 		ObservedGeneration: m.object.GetGeneration(),
 	}) {
+		if m.isWebhookConfigured() {
+			if m.watchCondition.Type == conditionType && m.watchStatus == status {
+				defer m.webhookMgr.Send(ctx)
+			}
+		}
+
 		ruleMatched := false
 
 		// recompute phase, since a condition status has changed
